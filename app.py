@@ -11,7 +11,7 @@ CORS(app, resources={r'/*': {'origins': '*'}})
 
 tokenizer = PreTrainedTokenizerFast.from_pretrained('gogamza/kobart-summarization')
 model = BartForConditionalGeneration.from_pretrained('gogamza/kobart-summarization')
-model.load_state_dict(torch.load('pytorch_model.bin'))
+model.load_state_dict(torch.load('.models/pytorch_model.bin'))
 
 @app.route('/', methods=['POST', 'GET'])
 def hello_world():

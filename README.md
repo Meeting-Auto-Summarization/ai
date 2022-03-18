@@ -14,6 +14,7 @@ transformers>=4.3.3
 flask>=2.0.3
 flask_cors
 gdown
+docx
 ```
 ### 2. Get model from Google drive
 ```

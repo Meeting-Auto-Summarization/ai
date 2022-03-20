@@ -14,13 +14,13 @@ transformers>=4.3.3
 flask>=2.0.3
 flask_cors
 gdown
-docx
+python-docx
 ```
 ### 2. Get model from Google drive
 ```
-$ python get_model.py
+python get_model.py
 ```
 ### 3. Run Web Server!
 ```
-$ python app.py
+python app.py
 ```

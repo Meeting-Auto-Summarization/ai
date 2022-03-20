@@ -3,4 +3,4 @@ transformers
 flask
 flask_cors
 gdown
-docx
+python-docx

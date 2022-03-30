@@ -4,18 +4,18 @@ import torch
 from transformers import PreTrainedTokenizerFast
 from transformers import BartForConditionalGeneration
 import json
-from io import BytesIO, StringIO
+from io import BytesIO
 from docx import Document
+import math
 
 app = Flask(__name__)
 
 CORS(app, resources={r'/*': {'origins': '*'}})
 
-tokenizer = PreTrainedTokenizerFast.from_pretrained('gogamza/kobart-summarization')
-model = BartForConditionalGeneration.from_pretrained('gogamza/kobart-summarization')
-model.load_state_dict(torch.load('.models/pytorch_model.bin'))
+tokenizer = PreTrainedTokenizerFast.from_pretrained('gogamza/kobart-base-v1')
+model = BartForConditionalGeneration.from_pretrained('kijun/mas-kobart-v1')
 
-@app.route('/', methods=['POST', 'GET'])
+@app.route('/summarize', methods=['POST', 'GET'])
 def hello_world():
     if request.method == 'POST':
         text = json.loads(request.get_data())['contents']
@@ -62,12 +62,12 @@ def get_script_docx():
         document.save(output_stream)
 
         title = meeting['title']
-        filename = f'{title}_script.docx'
+        filename = f'{title}_script.docx'.encode('utf-8')
 
         response = Response(
             output_stream.getvalue(), 
             mimetype='application/docx',
-            content_type='application/octet-stream',
+            content_type='application/octet-stream'
         )
         response.headers["Content-Disposition"] = f"attachment; filename={filename}"
         output_stream.close()
@@ -100,7 +100,7 @@ def get_report_docx():
         document.save(output_stream)
 
         title = meeting['title']
-        filename = f'{title}_report.docx'
+        filename = f'{title}_report.docx'.encode('utf-8')
 
         response = Response(
             output_stream.getvalue(), 
@@ -125,10 +125,10 @@ def get_script_txt():
         date = meeting['date']
         members = ', '.join(meeting['members'])
 
-        output_stream = StringIO()
+        output_stream = BytesIO()
 
-        output_stream.write(f'회의 제목: {title}\n회의 일시: {date}\n참여 인원: {members}\n\n')
-        output_stream.write('name\ttime\tcontent\n')
+        intro = f'회의 제목: {title}\n회의 일시: {date}\n참여 인원: {members}\n\nname\ttime\tcontent\n'.encode('utf-8')
+        output_stream.write(intro)
 
         for line in script:
             time = int(line['time'])
@@ -141,11 +141,10 @@ def get_script_txt():
 
             timeStr = f'{hours}:{str(0) + str(minutes) if minutes < 10 else minutes}:{str(0) + str(seconds) if seconds < 10 else seconds}'
 
-            text = f'{nick}\t{timeStr}\t{content}\n'
-
+            text = f'{nick}\t{timeStr}\t{content}\n'.encode('utf-8')
             output_stream.write(text)
 
-        filename = f'{title}_script.txt'
+        filename = f'{title}_script.txt'.encode('utf-8')
 
         response = Response(
             output_stream.getvalue(), 
@@ -170,9 +169,10 @@ def get_report_txt():
         date = meeting['date']
         members = ', '.join(meeting['members'])
 
-        output_stream = StringIO()
+        output_stream = BytesIO()
 
-        output_stream.write(f'회의 제목: {title}\n회의 일시: {date}\n참여 인원: {members}\n\n')
+        intro = f'회의 제목: {title}\n회의 일시: {date}\n참여 인원: {members}\n\n'.encode('utf-8')
+        output_stream.write(intro)
 
         for index, onedim in enumerate(report):
             for subIndex, reportItem in enumerate(onedim):
@@ -180,13 +180,13 @@ def get_report_txt():
                 summary = reportItem['summary']
 
                 if subIndex == 0:
-                    output_stream.write(f'{index + 1}. {report_title}\n')
+                    output_stream.write(f'{index + 1}. {report_title}\n'.encode('utf-8'))
                     if len(onedim) == 1:
-                        output_stream.write(f'\t{summary}\n')
+                        output_stream.write(f'\t{summary}\n'.encode('utf-8'))
                 else:
-                    output_stream.write(f'\t{chr(subIndex + 96)}. {report_title}\n\t\t{summary}\n')
+                    output_stream.write(f'\t{chr(subIndex + 96)}. {report_title}\n\t\t{summary}\n'.encode('utf-8'))
 
-        filename = f'{title}_report.txt'
+        filename = f'{title}_report.txt'.encode('utf-8')
 
         response = Response(
             output_stream.getvalue(), 
@@ -206,11 +206,30 @@ def predict(text):
     for i in range(len(text)):
         summaryList.append([])
         for j in range(len(text[i])):
-            raw_input_ids = tokenizer.encode(text[i][j])
-            input_ids = [tokenizer.bos_token_id] + raw_input_ids + [tokenizer.eos_token_id]
+            if text[i][j] != '':
+                input_ids = tokenizer.encode(text[i][j])
+                input_ids = [tokenizer.bos_token_id] + input_ids + [tokenizer.eos_token_id]
+                input_ids = torch.tensor(input_ids)
+                input_ids = input_ids.unsqueeze(0)
+                size = input_ids.size(1)
+                print(size)
 
-            summary_ids = model.generate(torch.tensor([input_ids]))
-            summaryList[i].append(tokenizer.decode(summary_ids.squeeze().tolist(), skip_special_tokens=True))
+                if size > 150:
+                    tensor_size = math.ceil(size / 150)
+                    sub_input_ids = torch.chunk(input_ids, tensor_size, 1)
+                    label = ''
+                    for k in range(tensor_size):
+                        output = model.generate(sub_input_ids[k], eos_token_id=1, max_length=512, num_beams=5)
+                        output = tokenizer.decode(output[0], skip_special_tokens=True)
+                        label += f'{output}\n'
+                    summaryList[i].append(label)
+                else:
+                    output = model.generate(input_ids, eos_token_id=1, max_length=512, num_beams=5)
+                    output = tokenizer.decode(output[0], skip_special_tokens=True)
+                    print(output)
+                    summaryList[i].append(output)
+            else:
+                summaryList[i].append('')
 
     return summaryList
 

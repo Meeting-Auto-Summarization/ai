@@ -2,5 +2,4 @@ torch
 transformers
 flask
 flask_cors
-gdown
 python-docx

@@ -16,11 +16,7 @@ flask_cors
 gdown
 python-docx
 ```
-### 2. Get model from Google drive
-```
-python get_model.py
-```
-### 3. Run Web Server!
+### 2. Run Web Server!
 ```
 python app.py
 ```

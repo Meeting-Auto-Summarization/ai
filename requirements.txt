@@ -1,5 +1,5 @@
 torch
 transformers
-flask
-flask_cors
+fastapi
+uvicorn
 python-docx

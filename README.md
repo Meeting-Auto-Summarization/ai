@@ -2,6 +2,7 @@
 ### 0. Clone Repository
 ```
 git clone https://github.com/Meeting-Auto-Summarization/ai.git
+cd ai
 ```
 ### 1. Install Packages that project requires
 ```
@@ -11,12 +12,11 @@ pip install -r requirements.txt
 ```
 torch>=1.7.1
 transformers>=4.3.3
-flask>=2.0.3
-flask_cors
-gdown
+fastapi
+uvicorn
 python-docx
 ```
 ### 2. Run Web Server!
 ```
-python app.py
+uvicorn main:app --reload
 ```

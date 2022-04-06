@@ -3,4 +3,5 @@ transformers
 fastapi
 uvicorn
 python-docx
+sentence_transformers
 kiwipiepy

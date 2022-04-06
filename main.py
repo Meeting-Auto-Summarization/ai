@@ -62,8 +62,8 @@ def summarize(body: Item):
 
                     output = model.generate(input_ids, eos_token_id=1, max_length=512, num_beams=5)
                     output = tokenizer.decode(output[0], skip_special_tokens=True)
-                    # print(output)
                     label += f'{output}\n'
+                print(label)
                 summaryList[i].append(label)
             else:
                 summaryList[i].append('')
@@ -73,7 +73,6 @@ def summarize(body: Item):
 def segmentation(corpus):
     kiwi = Kiwi()
     split_sentences = kiwi.split_into_sents(corpus)
-    print(split_sentences)
     # corpus = corpus.replace("\\", "").split(".")
     # corpus = [v.strip() for v in corpus if v]
 
@@ -101,9 +100,6 @@ def segmentation(corpus):
 
     similarity_timeseries = np.array(similarity_timeseries)
     threshold = similarity_timeseries.mean() - similarity_timeseries.var() + 0.03
-
-    print(threshold)
-    print(similarity_timeseries)
 
     segment_index = np.where(similarity_timeseries < threshold)[0] + 1
 

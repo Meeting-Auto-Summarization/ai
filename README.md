@@ -16,8 +16,9 @@ fastapi
 uvicorn
 python-docx
 kiwipiepy
+sentence_transformers
 ```
 ### 2. Run Web Server!
 ```
-uvicorn main:app --reload
+uvicorn main:app --reload --host=0.0.0.0
 ```

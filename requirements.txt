@@ -3,3 +3,4 @@ transformers
 fastapi
 uvicorn
 python-docx
+kiwipiepy

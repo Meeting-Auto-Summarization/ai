@@ -15,6 +15,7 @@ transformers>=4.3.3
 fastapi
 uvicorn
 python-docx
+kiwipiepy
 ```
 ### 2. Run Web Server!
 ```

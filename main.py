@@ -2,9 +2,10 @@ from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import torch
+import numpy as np
 from transformers import PreTrainedTokenizerFast
 from transformers import BartForConditionalGeneration
-import math
+from sentence_transformers import SentenceTransformer, util
 from io import BytesIO
 from docx import Document
 
@@ -21,6 +22,7 @@ class ScriptItem(BaseModel):
 
 tokenizer = PreTrainedTokenizerFast.from_pretrained('gogamza/kobart-base-v1')
 model = BartForConditionalGeneration.from_pretrained('kijun/mas-kobart-v1')
+embedder = SentenceTransformer('jhgan/ko-sbert-sts')
 
 app = FastAPI()
 origins = ["*"]
@@ -46,31 +48,62 @@ def summarize(body: Item):
         summaryList.append([])
         for j in range(len(text[i])):
             if text[i][j] != '':
-                input_ids = tokenizer.encode(text[i][j])
-                input_ids = [tokenizer.bos_token_id] + input_ids + [tokenizer.eos_token_id]
-                input_ids = torch.tensor(input_ids)
-                input_ids = input_ids.unsqueeze(0)
-                size = input_ids.size(1)
-                print(size)
+                segment_text = segmentation(text[i][j])
 
-                if size > 150:
-                    tensor_size = math.ceil(size / 150)
-                    sub_input_ids = torch.chunk(input_ids, tensor_size, 1)
-                    label = ''
-                    for k in range(tensor_size):
-                        output = model.generate(sub_input_ids[k], eos_token_id=1, max_length=512, num_beams=5)
-                        output = tokenizer.decode(output[0], skip_special_tokens=True)
-                        label += f'{output}\n'
-                    summaryList[i].append(label)
-                else:
+                label = ''
+                for segment in segment_text:
+                    input_ids = tokenizer.encode(segment)
+                    input_ids = [tokenizer.bos_token_id] + input_ids + [tokenizer.eos_token_id]
+                    input_ids = torch.tensor(input_ids)
+                    input_ids = input_ids.unsqueeze(0)
+                    # size = input_ids.size(1)
+                    # print(size)
+
                     output = model.generate(input_ids, eos_token_id=1, max_length=512, num_beams=5)
                     output = tokenizer.decode(output[0], skip_special_tokens=True)
-                    print(output)
-                    summaryList[i].append(output)
+                    # print(output)
+                    label += f'{output}\n'
+                summaryList[i].append(label)
             else:
                 summaryList[i].append('')
 
     return summaryList
+
+def segmentation(corpus):
+    corpus = corpus.replace("\\", "").split(".")
+    corpus = [v.strip() for v in corpus if v]\
+
+    corpus_embeddings = embedder.encode(corpus, convert_to_tensor=True)
+    corpus_embeddings.size()
+
+    similarity_timeseries = []
+
+    for index in range(corpus_embeddings.size()[0] - 1):
+        similarity = float(util.pytorch_cos_sim(corpus_embeddings[index], corpus_embeddings[index + 1]))
+        similarity_timeseries.append(similarity)
+
+    similarity_timeseries = np.array(similarity_timeseries)
+    threshold = similarity_timeseries.mean() - similarity_timeseries.var()
+
+    segment_index = np.where(similarity_timeseries < threshold)[0] + 1
+
+    segment_corpus = []
+
+    prev_index = 0
+
+    for index in segment_index:
+        corpus_list = ' '.join(corpus[prev_index:index])
+        prev_index = index
+        segment_corpus.append(corpus_list)
+
+    if prev_index != len(corpus):
+        corpus_list = ' '.join(corpus[prev_index:len(corpus)])
+        segment_corpus.append(corpus_list)
+
+    # for segment in segment_corpus:
+    print(segment_corpus)
+
+    return segment_corpus
 
 @app.post("/script-docx")
 def get_script_docx(body: ScriptItem):

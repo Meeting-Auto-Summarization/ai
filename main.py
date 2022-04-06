@@ -8,6 +8,7 @@ from transformers import BartForConditionalGeneration
 from sentence_transformers import SentenceTransformer, util
 from io import BytesIO
 from docx import Document
+from kiwipiepy import Kiwi
 
 class Item(BaseModel):
     contents: list
@@ -70,10 +71,26 @@ def summarize(body: Item):
     return summaryList
 
 def segmentation(corpus):
-    corpus = corpus.replace("\\", "").split(".")
-    corpus = [v.strip() for v in corpus if v]\
+    kiwi = Kiwi()
+    split_sentences = kiwi.split_into_sents(corpus)
+    print(split_sentences)
+    # corpus = corpus.replace("\\", "").split(".")
+    # corpus = [v.strip() for v in corpus if v]
 
-    corpus_embeddings = embedder.encode(corpus, convert_to_tensor=True)
+    split_corpus = []
+
+    flag = False
+    for i in range(0, len(split_sentences) - 1):
+        if flag:
+            flag = False
+        else:
+            if split_sentences[i].text[-2].isdigit() and split_sentences[i + 1].text[0].isdigit():
+                split_corpus.append(f"{split_sentences[i].text}{split_sentences[i + 1].text}")
+                flag = True
+            else:
+                split_corpus.append(split_sentences[i].text)
+
+    corpus_embeddings = embedder.encode(split_corpus, convert_to_tensor=True)
     corpus_embeddings.size()
 
     similarity_timeseries = []
@@ -83,7 +100,10 @@ def segmentation(corpus):
         similarity_timeseries.append(similarity)
 
     similarity_timeseries = np.array(similarity_timeseries)
-    threshold = similarity_timeseries.mean() - similarity_timeseries.var()
+    threshold = similarity_timeseries.mean() - similarity_timeseries.var() + 0.03
+
+    print(threshold)
+    print(similarity_timeseries)
 
     segment_index = np.where(similarity_timeseries < threshold)[0] + 1
 
@@ -92,16 +112,18 @@ def segmentation(corpus):
     prev_index = 0
 
     for index in segment_index:
-        corpus_list = ' '.join(corpus[prev_index:index])
+        corpus_list = ' '.join(split_corpus[prev_index:index])
         prev_index = index
         segment_corpus.append(corpus_list)
 
-    if prev_index != len(corpus):
-        corpus_list = ' '.join(corpus[prev_index:len(corpus)])
+    if prev_index != len(split_corpus):
+        corpus_list = ' '.join(split_corpus[prev_index:len(split_corpus)])
         segment_corpus.append(corpus_list)
 
-    # for segment in segment_corpus:
-    print(segment_corpus)
+    print("segment list start")
+    for index, segment in enumerate(segment_corpus):
+        print(f"{index}. {segment}")
+    print("\n")
 
     return segment_corpus
 

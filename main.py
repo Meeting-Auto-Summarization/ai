@@ -1,14 +1,15 @@
 from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import torch
 import numpy as np
-from transformers import PreTrainedTokenizerFast
-from transformers import BartForConditionalGeneration
+from transformers import PreTrainedTokenizerFast, BartForConditionalGeneration, pipeline
 from sentence_transformers import SentenceTransformer, util
 from io import BytesIO
 from docx import Document
 from kiwipiepy import Kiwi
+import ray, os
+
+os.environ["TOKENIZERS_PARALLELISM"] = "true"
 
 class Item(BaseModel):
     contents: list
@@ -24,6 +25,12 @@ class ScriptItem(BaseModel):
 tokenizer = PreTrainedTokenizerFast.from_pretrained('gogamza/kobart-base-v1')
 model = BartForConditionalGeneration.from_pretrained('kijun/mas-kobart-v1')
 embedder = SentenceTransformer('jhgan/ko-sbert-sts')
+
+summarizer = pipeline("summarization", model=model, tokenizer=tokenizer, framework="pt")
+
+@ray.remote
+def predict(pipeline, text_data):
+    return pipeline(text_data, max_length=512)[0]['summary_text']
 
 app = FastAPI()
 origins = ["*"]
@@ -51,19 +58,12 @@ def summarize(body: Item):
             if text[i][j] != '':
                 segment_text = segmentation(text[i][j])
 
-                label = ''
-                for segment in segment_text:
-                    input_ids = tokenizer.encode(segment)
-                    input_ids = [tokenizer.bos_token_id] + input_ids + [tokenizer.eos_token_id]
-                    input_ids = torch.tensor(input_ids)
-                    input_ids = input_ids.unsqueeze(0)
-                    # size = input_ids.size(1)
-                    # print(size)
+                ray.init(num_cpus=4, ignore_reinit_error=True)
+                pipe_id = ray.put(summarizer)
+                predictions = ray.get([predict.remote(pipe_id, corpus) for corpus in segment_text])
+                ray.shutdown()
 
-                    output = model.generate(input_ids, eos_token_id=1, max_length=512, num_beams=5)
-                    output = tokenizer.decode(output[0], skip_special_tokens=True)
-                    label += f'{output}\n'
-                print(label)
+                label = '\n'.join(predictions)
                 summaryList[i].append(label)
             else:
                 summaryList[i].append('')

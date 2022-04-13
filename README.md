@@ -10,13 +10,14 @@ pip install -r requirements.txt
 ```
 #### 1-1. Requirements
 ```
-torch>=1.7.1
-transformers>=4.3.3
-fastapi
-uvicorn
+torch==1.11.0
+transformers==4.17.0
+sentence_transformers==2.2.0
+fastapi==0.75.0
+uvicorn==0.17.6
 python-docx
-kiwipiepy
-sentence_transformers
+kiwipiepy==0.11.1
+ray==1.11.0
 ```
 ### 2. Run Web Server!
 ```

@@ -58,12 +58,14 @@ def summarize(body: Item):
             if text[i][j] != '':
                 segment_text = segmentation(text[i][j])
 
-                ray.init(num_cpus=4, ignore_reinit_error=True)
-                pipe_id = ray.put(summarizer)
-                predictions = ray.get([predict.remote(pipe_id, corpus) for corpus in segment_text])
-                ray.shutdown()
+                # ray.init(num_cpus=4, ignore_reinit_error=True)
+                # pipe_id = ray.put(summarizer)
+                # predictions = ray.get([predict.remote(pipe_id, corpus) for corpus in segment_text])
+                # ray.shutdown()
+                predictions = summarizer(segment_text, max_length=512)
+                label = '\n'.join([text['summary_text'] for text in predictions])
 
-                label = '\n'.join(predictions)
+                # label = '\n'.join(predictions)
                 summaryList[i].append(label)
             else:
                 summaryList[i].append('')
@@ -88,6 +90,9 @@ def segmentation(corpus):
                 flag = True
             else:
                 split_corpus.append(split_sentences[i].text)
+    
+    if len(split_corpus) < 6:
+        return corpus
 
     corpus_embeddings = embedder.encode(split_corpus, convert_to_tensor=True)
     corpus_embeddings.size()

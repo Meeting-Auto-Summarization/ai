@@ -91,11 +91,10 @@ def segmentation(corpus):
             else:
                 split_corpus.append(split_sentences[i].text)
     
-    if len(split_corpus) < 6:
+    if len(split_corpus) < 6 and len(corpus) < 150:
         return corpus
 
     corpus_embeddings = embedder.encode(split_corpus, convert_to_tensor=True)
-    corpus_embeddings.size()
 
     similarity_timeseries = []
 
@@ -113,7 +112,7 @@ def segmentation(corpus):
     prev_index = 0
 
     for index in segment_index:
-        corpus_list = ' '.join(split_corpus[prev_index:index])
+        corpus_list = '\r'.join(split_corpus[prev_index:index])
         prev_index = index
         segment_corpus.append(corpus_list)
 
